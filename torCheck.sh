@@ -25,12 +25,27 @@ if [ ! -f torlist.txt ]; then
   fi
   sort torlist.txt -o torlist.txt
 fi
-OUTFILE=ips-$RANDOM.txt
-echo "[+] Extracting IPs from $INFILE and writing to $OUTFILE..."
-tshark -r $INFILE -Y "tcp"  -T fields -e ip.src | sort | uniq > $OUTFILE
+echo "[+] Extracting IPs from $INFILE..."
+#tshark -r $INFILE -Y "tcp"  -T fields -e ip.dst | sort | uniq > ips.txt
+tshark -r $INFILE -Y "tcp"  -T fields -e ip.src -e ip.dst -E separator=,| sort | uniq > ippairs.txt
+cat ippairs.txt | cut -d "," -f 2 | sort | uniq > ips.txt
 echo "[-] ToR entry nodes: " `wc -l <torlist.txt`
-echo "[+] IPs in capture file: " `wc -l <$OUTFILE`
-echo "[-] Checking IP list against known ToR entry nodes:"
+echo "[+] IPs in capture file: " `wc -l <ips.txt`
 echo "[+] Entry node ToR IPs in $INFILE:"
 echo ""
-cat torlist.txt $OUTFILE | sort | uniq -d # Hack to find intersection of sort files
+cat torlist.txt ips.txt | sort | uniq -d > tors.txt # Hack to find intersection of sorted files
+cat tors.txt
+
+echo ""
+echo "[+] Client IPs in $INFILE connecting to above ToR nodes:"
+
+echo "">tmp.txt
+for i in `cat tors.txt`
+do
+  grep $i ippairs.txt | cut -d "," -f 1 >> tmp.txt
+done
+
+grep -v -F -x -f tors.txt tmp.txt| sort | uniq # Such hax. Much wow.
+
+#Cleanup
+rm ips.txt tmp.txt ippairs.txt tors.txt
